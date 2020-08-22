@@ -1,0 +1,10 @@
+{
+  "FileVersion": 2,
+  "Id": "5e55b599-6032-45a9-95f3-49600e244ada",
+  "Items": [
+    {
+      "Id": "d17a21b7-834d-4971-b8ec-215d3aea1549",
+      "Command": "Plugin.Payment.dll"
+    }
+  ]
+}
