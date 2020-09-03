@@ -15,15 +15,18 @@
         // ReSharper disable once InconsistentNaming
         private static readonly Dictionary<string, object> Funcoes = new Dictionary<string, object>()
         {
-            ["ObterHandleJanelaPrincipal"] = (Func<uint>)(() => 0)
+            ["ObterHandleJanelaPrincipal"] = (Func<uint>)(() => 0),
+            ["ObterModoLicenciado"] = (Func<string,int>)(m => 1),
+            ["ObterChaveLicenciada"] = (Func<string,int>)(c => 1)
         };
 
+        [STAThread]
         private static void Main(string[] args)
         {
             foreach (var arquivo in Directory.EnumerateDirectories(".")
                 .ToList()
                 .SelectMany(dir => Directory.EnumerateFiles(dir, "Plugin.*.dll"))
-                .Where(arquivo => args.Length == 0 || arquivo.EndsWith(args[0])))
+                .Where(arquivo => args.Length == 0 || arquivo.ToLower().EndsWith(args[0].ToLower())))
             {
                 Console.WriteLine(arquivo);
                 CarregarPlugin(arquivo);
@@ -47,45 +50,57 @@
                 _plugin = ObterInstancia(pluginClass);
                 _metodosPlugin = ObterMetodos(pluginClass);
 
-                Configurar();
-
                 ImprimirReferencias(assembly);
 
                 var nome = ExecutarMetodo<string>("ObterNome", pluginClass, _plugin);
                 var versao = ExecutarMetodo<string>("ObterVersao", pluginClass, _plugin);
-                Console.WriteLine($" Plugin: {nome} ({versao}) carregado corretemente! ");
+
                 Console.WriteLine("*".PadRight(60, '*'));
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($" Plugin: {nome} ({versao}) carregado corretemente! ");
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("*".PadRight(60, '*'));
+
+                if (_metodosPlugin?.FirstOrDefault(m => m.Name == "Configurar") is null)
+                    return;
+
+                Console.Write("Deseja tentar executar o método de configurações? [Y/N]:");
+                var resposta = Console.ReadKey();
+                if (resposta.KeyChar.ToString().ToLower() == "y")
+                    Configurar();
             }
             catch (Exception e)
             {
+                Console.ForegroundColor = ConsoleColor.Red; 
                 Console.WriteLine(e);
+                Console.ForegroundColor = ConsoleColor.White;
             }
         }
 
         private static void ImprimirReferencias(Assembly assembly)
         {
-            Console.WriteLine($"Tipos exportados: {assembly.GetExportedTypes().Length}");
-
-            foreach (var name in assembly.GetReferencedAssemblies())
+            Console.WriteLine($"- Tipos exportados: ({assembly.GetExportedTypes().Length})");
+            foreach (var t in assembly.GetExportedTypes())
             {
-                var dll = Assembly.Load(name);
-                Console.WriteLine($"{name.Name}\t => {dll.CodeBase}");
+                Console.Out.WriteLine($"  - {t.FullName}");
             }
-        }
 
-        private static IEnumerable<string> GetAssemblyFiles(Assembly assembly)
-        {
             var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-            return assembly.GetReferencedAssemblies()
-                .Select(name => loadedAssemblies.SingleOrDefault(a => a.FullName == name.FullName)?.Location)
-                .Where(l => !string.IsNullOrWhiteSpace(l));
+            Console.WriteLine($"- Referencias: ({assembly.GetReferencedAssemblies().Length})");
+            foreach (var ra in assembly.GetReferencedAssemblies())
+            {
+                var la = loadedAssemblies.SingleOrDefault(a => a.FullName == ra.FullName);
+                var dll = la is null ? null : Assembly.Load(la.FullName);
+                var name = dll?.GetName().Name ?? ra.Name;
+                Console.WriteLine($"  - {name,-25} => {la?.CodeBase ?? "<costura>" }");
+            }
         }
 
         private static void Configurar()
         {
             _metodosColibri?.FirstOrDefault(m => m.Name == "AtribuirFuncoes")?.Invoke(null, new object[] { Funcoes });
-            _metodosPlugin?.FirstOrDefault(m => m.Name == "Configurar")?.Invoke(_plugin, new object[] { "" });
+            _metodosPlugin?.FirstOrDefault(m => m.Name == "ConfigurarDb")?.Invoke(_plugin, new object[] { ".", "ncrcolibri", "sa", "1234", "" });
+            _metodosPlugin?.FirstOrDefault(m => m.Name == "Configurar")?.Invoke(_plugin, new object[] { "{'maquinas': {1:'maquina1'}}" });
         }
 
         private static string ObterNamespace(string arquivo)
@@ -93,14 +108,14 @@
 
         private static MethodInfo[] ObterMetodos(Type classe)
         {
-            Console.WriteLine(" - Metodos:");
             var metodos = classe?.GetMethods();
 
             if (metodos == null)
                 return null;
 
+            Console.WriteLine($"  - Metodos: ({classe.GetMethods().Length})");
             foreach (var methodInfo in metodos)
-                Console.WriteLine($"   - {methodInfo.Name}");
+                Console.WriteLine($"    - {methodInfo.Name}");
 
             return metodos;
         }
