@@ -100,7 +100,7 @@
         {
             _metodosColibri?.FirstOrDefault(m => m.Name == "AtribuirFuncoes")?.Invoke(null, new object[] { Funcoes });
             _metodosPlugin?.FirstOrDefault(m => m.Name == "ConfigurarDb")?.Invoke(_plugin, new object[] { ".", "ncrcolibri", "sa", "1234", "" });
-            _metodosPlugin?.FirstOrDefault(m => m.Name == "Configurar")?.Invoke(_plugin, new object[] { "{'maquinas': {1:'maquina1'}}" });
+            _metodosPlugin?.FirstOrDefault(m => m.Name == "Configurar")?.Invoke(_plugin, new object[] { $"{{'maquinas': {{1: '{Environment.MachineName}'}}}}" });
         }
 
         private static string ObterNamespace(string arquivo)
